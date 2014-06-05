@@ -91,6 +91,13 @@ tree :: tree()
   intermediate_node_id_counter = 0;
 }
 
+int tree :: create_tree(int n)
+{
+  for(int i = 0; i<n; i++)
+    add_to_tree();
+  reset_dh_counter();
+}
+
 int tree :: get_no_of_dh_actions()
 {
   return no_of_dh_actions;
