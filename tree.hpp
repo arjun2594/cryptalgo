@@ -48,6 +48,7 @@ class tree
   
  public:
   tree();
+  void reset_dh_counter();
   node* create_node();
   int create_tree (int noofnodes); //Used for initially creating a tree;
   int add_to_tree (); // For adding a node or a set of nodes to a tree
@@ -377,4 +378,9 @@ void tree :: sponsor_del(node *del)
     }                       
   }
   sponsor=tmp;
+}
+
+void tree :: reset_dh_counter() // Resets the number of DH actions performed after initial tree construction
+{
+  no_of_dh_actions = 0;
 }
