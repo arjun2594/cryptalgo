@@ -90,6 +90,11 @@ tree :: tree()
   intermediate_node_id_counter = 0;
 }
 
+int tree :: get_no_of_dh_actions()
+{
+  return no_of_dh_actions;
+}
+
 int tree :: tree_height()
 {
   return int(floor(log2(no_of_leaves)));
