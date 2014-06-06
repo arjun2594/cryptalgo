@@ -33,37 +33,45 @@ class tree
   {
     struct node *node [MAX_NODES];
     int nodeid [MAX_NODES];
+    bool reset[MAX_NODES];
   }nt;
   
   struct intermediate_node_table // structure for storing all the intermediate nodes
   {
     struct node* node [MAX_NODES];
     int nodeid[MAX_NODES];
+    bool reset[MAX_NODES];
   }inter_nt;
   
   int no_of_leaves; // Stores the number of leaves in the tree
   int node_id_counter; // Stores the incremental id to be stored for the nodes.
   int nt_counter; // Index to the nodetable
   int intermediate_node_id_counter; // Stores the incremental id for all the nodes.
+  int broadcast_count; // Stores the number of broadcasts
   
  public:
   tree();
-  void reset_dh_counter();
-  node* create_node();
+  void reset_dh_counter(); // Reset the no of DH operations performed
+  node* create_node(); // Create a new node
   int create_tree (int noofnodes); //Used for initially creating a tree;
   int add_to_tree (); // For adding a node or a set of nodes to a tree
   int delete_from_tree (int nodeid); // For deleting a node or a set of nodes from a tree;
-  int get_max_id();
-  int get_max_intermediate_id();
-  node* find_node_by_id (int nodeid);
-  void insert_into_node_table (node *node, int nodeid);
-  void delete_from_node_table (int nodeid);
-  int keygen(node *); // For generating the keys for a particular node
+  int get_max_id(); // Returns the maximum nodeid
+  int get_max_intermediate_id(); // Returns the maximum intermediate id
+  int get_broadcast_count(); // Returns the broadcast count
+  node* find_node_by_id (int nodeid); // Find node by given id
+  void insert_into_node_table (node *node, int nodeid); // Insert node into table
+  void delete_from_node_table (int nodeid); // Delete node with nodeid from table
+  void insert_into_intermediate_node_table(node* n, int nodeid); // Insert intermediate node into table
+  void delete_from_intermediate_node_table(int nodeid); // Delete intermediate node from table
+  int keygen(node *); // For generating the keys for a particular node 
   int compute_shared_key(node *); // For computing the shared key at each node
   node* get_sibling(node *e); // For getting the sibling of each node
-  int tree_height();
+  int tree_height(); // Returns the tree height
   int get_no_of_dh_actions(); // Returns the number of DH actions performed in one instance of the tree.
-  void reset_all_keys();
+  void reset_all_keys(); // Reset the keys of the nodes lying in the keypath of the sponsor
+  void broadcast(); // Used for broadcasting the changes to all the nodes that are changed.
+  void setstatus(char table, bool resetstatus); // Method for resetting the status of key change 
   
   void keypath_reset(node *n);
   void copath_reset(node *n);
@@ -83,32 +91,68 @@ class tree
 tree :: tree()
 {
   root = NULL;
-
   // Set all the counters to zero
   no_of_leaves = 0;
   node_id_counter = 0;
   nt_counter = 0;
   intermediate_node_id_counter = 0;
+  broadcast_count = 0; 
 }
 
-int tree :: create_tree(int n)
+int get_broadcast_count() // Return the broadcast count in the network
+{
+  return broadcast_count;
+}
+
+void tree :: setstatus(char table, bool resetstatus) // Table value should be 'l' for leaf and 'i' for intermediate nodes
+{                                                    // Used for setting the reset status for each node in the network    
+  if(table == 'l')
+    for (int i = 0; i<MAX_NODES; i++)
+      nt.reset[i] = resetstatus;
+  else
+    for(int i = 0; i<MAX_NODES; i++)
+      inter_nt.reset[i] = resetstatus;
+}
+
+void tree:: broadcast() // Used for broadcasting the change to each network node.
+{
+  setstatus('l', false); // Mark all the nodes to be reset 
+  for(int i = 0; i < MAX_NODES + 1 ; i++)
+  {
+    for(int j = 0;j< MAX_NODES + 1; j++)
+    {
+      for(int k = 0;k < MAX_NODES +1; k++)
+        if(sponsor -> keypath[i] == nt.node[j] -> keypath [k] || nt.node[j] -> copath[k])
+          if(!nt.node[j].reset)
+          {
+            keygen(nt.node[j] -> keypath[k]);
+            nt.reset[i] = true;
+            broacast_count ++;
+          }
+    }
+  }
+  setstatus('l',true); // Set all the status flags back to false
+}
+
+int tree :: create_tree(int n) // Create the initial tree.
 {
   for(int i = 0; i<n; i++)
     add_to_tree();
-  reset_dh_counter();
+  reset_dh_counter(); // Clear the DH counter after the initial tree is constructed
+  broadcast_count = 0; // Reset the broadcast count after the initial tree construction
 }
 
-int tree :: get_no_of_dh_actions()
+int tree :: get_no_of_dh_actions() // Return the no of Diffie Hellan Operations
 {
   return no_of_dh_actions;
 }
 
-int tree :: tree_height()
+int tree :: tree_height() // Return the tree height
 {
   return int(floor(log2(no_of_leaves)));
 }
   
-tree :: node* tree :: create_node ()
+tree :: node* tree :: create_node () // Create a new node
 {
   n = new node;
   no_of_leaves++;
@@ -117,21 +161,11 @@ tree :: node* tree :: create_node ()
   keygen(n);
 }
 
-void tree :: reset_all_keys()
+void tree :: reset_all_keys() // Resets the keys of nodes in the key path of the sponsor
 {
   int iter = 0;
-  for (iter = 0; iter < get_max_id(); iter++)
-    if(nt.node[iter] != NULL)
-    {
-      keygen(nt.node[iter]);
-      no_of_dh_actions++;
-    }
-  for (iter = 0; iter < get_max_intermediate_id(); iter++)
-    if(inter_nt.node[iter] != NULL)
-    {
-      compute_shared_key(inter_nt.node[iter]);
-      no_of_dh_actions++;
-    }
+  for (iter = 0; iter < MAX_NODES+1; iter++)
+    keygen(sponsor ->  keypath[iter]);
 }
 
 int tree :: add_to_tree () // Method is used for adding nodes to the key tree
@@ -153,6 +187,7 @@ int tree :: add_to_tree () // Method is used for adding nodes to the key tree
     temp = root; 
     root = new node;
     root -> nodeid = intermediate_node_id_counter++;
+    insert_into_intermediate_node_table (root, root -> nodeid);
     root -> child [0] = temp;
     root -> child [1] = n;
     root -> child[1] -> parent = root;
@@ -165,11 +200,12 @@ int tree :: add_to_tree () // Method is used for adding nodes to the key tree
     node *inter = temp -> parent; // Get it's parent
     temp = new node; // Create a new supplementary node
     temp -> nodeid = intermediate_node_id_counter++;
+    insert_into_intermediate_node_table(temp -> nodeid);
     temp -> parent = inter -> parent; // Make this node to point to the parent of the original node
     temp -> child[0] = inter; // Make the original node its child
     inter -> parent = temp; // Make the new node its parent
     temp -> child[1] = n; // Make the incoming node the child of the newly created node
-    n -> parent = inter;
+    n -> parent = temp; //
   }
 
   else
@@ -178,9 +214,10 @@ int tree :: add_to_tree () // Method is used for adding nodes to the key tree
     node *inter = temp -> parent;
     inter -> child[1] = n; // Assign this node as the parent of the shallowest rightmost node;
   }
+  
 }
 
-int tree:: delete_from_tree(int nodeid) // Delete a node from tree - Takes nodeid as input
+int tree :: delete_from_tree(int nodeid) // Delete a node from tree - Takes nodeid as input
 {
   temp = find_node_by_id (nodeid);
 
@@ -190,6 +227,7 @@ int tree:: delete_from_tree(int nodeid) // Delete a node from tree - Takes nodei
   {
     temp -> parent = get_sibling(temp);
     delete_from_node_table(temp -> nodeid); // Delete the entry from node table also
+    delete_from_intermediate_node_table(temp->parent->nodeid); //Delete the parent from the intermediate node table
     delete temp;
     reset_all_keys();
   }
@@ -229,7 +267,7 @@ void tree :: insert_into_node_table (node *node, int nodeid) // inserting a node
   nt.nodeid[nt_counter++] = nodeid;
 }
     
-void tree :: delete_from_node_table (int nodeid)
+void tree :: delete_from_node_table (int nodeid) // Delete an entry from the node table 
 {
   for (int i = 0; i<no_of_leaves; i++)
     if(nt.nodeid[i] == nodeid)
@@ -239,18 +277,26 @@ void tree :: delete_from_node_table (int nodeid)
     }
 }
 
-int tree :: keygen(node *n)
+int tree :: keygen(node *n) // Generate the keys for a given node
 {
-  return DH_generate_key(n -> dh);
+  for (int i = 0; i < MAX_NODES; i++)
+    if(nt.node[i] == n)
+      return DH_generate_key(n -> dh);
+    else
+    {
+      n->dh->private_key = n->child[0]->group_key;
+      return DH_generate_key(n -> dh);
+    }
+  compute_shared_key(n);
 }
 
-int tree :: compute_shared_key(node *n)
+int tree :: compute_shared_key(node *n) // Compute the shared key for a given node
 {
   node *sibling = get_sibling(n);
   return DH_compute_key(n -> group_key, (sibling -> dh) -> pub_key, n -> dh); // Compute the key for each node.
 }
 
-tree :: node* tree :: get_sibling(node *n) // Method to get the 
+tree :: node* tree :: get_sibling(node *n) // Method to get the sibling of a particular node
 {
   node* temp = n -> parent;
   if(n == temp -> child[0])
