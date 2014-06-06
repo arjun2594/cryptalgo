@@ -99,7 +99,7 @@ tree :: tree()
   broadcast_count = 0; 
 }
 
-int get_broadcast_count() // Return the broadcast count in the network
+int tree :: get_broadcast_count() // Return the broadcast count in the network
 {
   return broadcast_count;
 }
@@ -123,11 +123,11 @@ void tree:: broadcast() // Used for broadcasting the change to each network node
     {
       for(int k = 0;k < MAX_NODES +1; k++)
         if(sponsor -> keypath[i] == nt.node[j] -> keypath [k] || nt.node[j] -> copath[k])
-          if(!nt.node[j].reset)
+          if(!nt.reset[j])
           {
             keygen(nt.node[j] -> keypath[k]);
-            nt.reset[i] = true;
-            broacast_count ++;
+            nt.reset[j] = true;
+            broadcast_count ++;
           }
     }
   }
@@ -200,7 +200,7 @@ int tree :: add_to_tree () // Method is used for adding nodes to the key tree
     node *inter = temp -> parent; // Get it's parent
     temp = new node; // Create a new supplementary node
     temp -> nodeid = intermediate_node_id_counter++;
-    insert_into_intermediate_node_table(temp -> nodeid);
+    insert_into_intermediate_node_table(temp, temp -> nodeid);
     temp -> parent = inter -> parent; // Make this node to point to the parent of the original node
     temp -> child[0] = inter; // Make the original node its child
     inter -> parent = temp; // Make the new node its parent
@@ -284,7 +284,7 @@ int tree :: keygen(node *n) // Generate the keys for a given node
       return DH_generate_key(n -> dh);
     else
     {
-      n->dh->private_key = n->child[0]->group_key;
+      n->dh->priv_key = (BIGNUM*)n->child[0]->group_key;
       return DH_generate_key(n -> dh);
     }
   compute_shared_key(n);
