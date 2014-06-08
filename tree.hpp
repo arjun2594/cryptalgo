@@ -48,12 +48,14 @@ class tree
   int nt_counter; // Index to the nodetable
   int intermediate_node_id_counter; // Stores the incremental id for all the nodes.
   int broadcast_count; // Stores the number of broadcasts
+  int message_count; // Stores the no of messages
   
  public:
   tree();
   void reset_dh_counter(); // Reset the no of DH operations performed
   node* create_node(); // Create a new node
   int create_tree (int noofnodes); //Used for initially creating a tree;
+  int get_message_count(); // Returns the No of messages
   int add_to_tree (); // For adding a node or a set of nodes to a tree
   int delete_from_tree (int nodeid); // For deleting a node or a set of nodes from a tree;
   int get_max_id(); // Returns the maximum nodeid
@@ -96,12 +98,18 @@ tree :: tree()
   node_id_counter = 0;
   nt_counter = 0;
   intermediate_node_id_counter = 0;
-  broadcast_count = 0; 
+  broadcast_count = 0;
+  message_count = 0;
 }
 
 int tree :: get_broadcast_count() // Return the broadcast count in the network
 {
   return broadcast_count;
+}
+
+int tree :: get_message_count() // Return the no of messages
+{
+  return message_count;
 }
 
 void tree :: setstatus(char table, bool resetstatus) // Table value should be 'l' for leaf and 'i' for intermediate nodes
@@ -277,6 +285,22 @@ void tree :: delete_from_node_table (int nodeid) // Delete an entry from the nod
     }
 }
 
+void tree :: insert_into_intermediate_node_table (node *node, int nodeid) // inserting a node into the node table
+{
+  inter_nt.node[intermediate_node_id_counter] = node;
+  inter_nt.nodeid[intermediate_node_id_counter ++] = nodeid;
+}
+    
+void tree :: delete_from_intermediate_node_table (int nodeid) // Delete an entry from the node table 
+{
+  for (int i = 0; i<no_of_leaves; i++)
+    if(inter_nt.nodeid[i] == nodeid)
+    {
+      inter_nt.nodeid[i] = -1; //set invalid nodeid
+      inter_nt.node[i] = NULL; 
+    }
+}
+
 int tree :: keygen(node *n) // Generate the keys for a given node
 {
   for (int i = 0; i < MAX_NODES; i++)
@@ -292,6 +316,7 @@ int tree :: keygen(node *n) // Generate the keys for a given node
 
 int tree :: compute_shared_key(node *n) // Compute the shared key for a given node
 {
+  message_count ++;
   node *sibling = get_sibling(n);
   return DH_compute_key(n -> group_key, (sibling -> dh) -> pub_key, n -> dh); // Compute the key for each node.
 }
